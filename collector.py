@@ -3,13 +3,8 @@ import os
 from ntscraper import Nitter
 from datetime import datetime
 
-# 1. 계정 성격 분류
-# A그룹: 플레이브 전용 소식이 주로 올라오는 곳 (무조건 수집)
-PLLI_FAVORITE_ACCOUNTS = [
-    "picnic_kr", "giftreeofficial", "lovedol_vote", "HIGHER_twt"
-]
-
-# B그룹: 여러 아이돌 소식이 섞여 있는 곳 (키워드 검사 필수)
+# 계정 분류
+PLLI_FAVORITE_ACCOUNTS = ["picnic_kr", "giftreeofficial", "lovedol_vote", "HIGHER_twt"]
 GENERAL_VOTE_ACCOUNTS = [
     "starnewskorea", "sda_official", "GoldenDisc", "fanplus_app", "thefactnews", 
     "myloveidol_kpop", "MubeatOfficial", "bigc_kr", "twt_my1pick", "podoal_official", 
@@ -32,23 +27,18 @@ def collect():
 
     existing_links = {item['link'] for item in total_data}
 
-    # 수집 키워드 보강
-    plave_keywords = [
-        'PLAVE', '플레이브', 'PLLI', '플리',
-        '예준', 'YEJUN', '노아', 'NOAH', '밤비', 'BAMBI', '은호', 'EUNHO', '하민', 'HAMIN'
-    ]
+    # 확장된 키워드 세트 (투표 단어 미포함 시 대비)
+    plave_names = ['PLAVE', '플레이브', 'PLLI', '플리', '예준', 'YEJUN', '노아', 'NOAH', '밤비', 'BAMBI', '은호', 'EUNHO', '하민', 'HAMIN']
+    action_keywords = ['시안', 'DESIGN', '광고', 'AD', 'SUPPORT', '순위', 'RANK', '결과', 'RESULT', '참여', 'JOIN', 'EVENT']
+    account_ids = PLLI_FAVORITE_ACCOUNTS + GENERAL_VOTE_ACCOUNTS
     
-    # 계정 아이디들도 키워드에 포함하여 @ 없이 언급되어도 찾도록 설정
-    account_keywords = PLLI_FAVORITE_ACCOUNTS + GENERAL_VOTE_ACCOUNTS
-    search_keywords = [kw.upper() for kw in (plave_keywords + account_keywords)]
+    search_keywords = [kw.upper() for kw in (plave_names + action_keywords + account_ids)]
 
-    # 모든 계정 리스트 합치기
     all_accounts = [(acc, "A") for acc in PLLI_FAVORITE_ACCOUNTS] + [(acc, "B") for acc in GENERAL_VOTE_ACCOUNTS]
 
     for account, group_type in all_accounts:
         try:
             print(f"@{account} 스캔 중...")
-            # 더 꼼꼼한 확인을 위해 스캔 개수 상향
             tweets = scraper.get_tweets(account, mode='user', number=50)
             
             for t in tweets['tweets']:
@@ -57,7 +47,7 @@ def collect():
                 text = t['text'].upper()
                 is_target = False
                 
-                # A그룹은 무조건, B그룹은 키워드(이름 또는 아이디)가 있을 때 수집
+                # A그룹(플리 전용)은 무조건, B그룹은 확장 키워드 매칭 시 수집
                 if group_type == "A":
                     is_target = True
                 else:
@@ -66,7 +56,6 @@ def collect():
                 
                 if is_target:
                     tweet_date = t['date']
-                    # 1월, 2월 데이터 위주 필터링
                     if "Jan" in tweet_date or "Feb" in tweet_date:
                         new_data.append({
                             "account": account,
@@ -84,8 +73,7 @@ def collect():
 
     with open(file_path, 'w', encoding='utf-8') as f:
         json.dump(final_data, f, ensure_ascii=False, indent=4)
-    
-    print(f"업데이트 완료: 새 소식 {len(new_data)}개 추가.")
+    print(f"완료: {len(new_data)}개 추가.")
 
 if __name__ == "__main__":
     collect()
