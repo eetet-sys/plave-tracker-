@@ -1,0 +1,24 @@
+name: Plave Update
+on:
+  schedule:
+    - cron: '0 0,4,9,13 * * *' # 하루 4번 실행
+  workflow_dispatch: # 수동 실행 버튼
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with: {python-version: '3.9'}
+      - name: Install
+        run: pip install ntscraper pandas
+      - name: Run
+        run: python collector.py
+      - name: Save
+        run: |
+          git config --global user.name 'bot'
+          git config --global user.email 'bot@github.com'
+          git add plave_data.json
+          git commit -m "update" || exit 0
+          git push
