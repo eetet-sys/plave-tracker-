@@ -27,27 +27,29 @@ def collect():
 
     existing_links = {item['link'] for item in total_data}
 
-    # 확장된 키워드 세트 (투표 단어 미포함 시 대비)
+    # 키워드 설정
     plave_names = ['PLAVE', '플레이브', 'PLLI', '플리', '예준', 'YEJUN', '노아', 'NOAH', '밤비', 'BAMBI', '은호', 'EUNHO', '하민', 'HAMIN']
-    action_keywords = ['시안', 'DESIGN', '광고', 'AD', 'SUPPORT', '순위', 'RANK', '결과', 'RESULT', '참여', 'JOIN', 'EVENT']
-    account_ids = PLLI_FAVORITE_ACCOUNTS + GENERAL_VOTE_ACCOUNTS
-    
-    search_keywords = [kw.upper() for kw in (plave_names + action_keywords + account_ids)]
+    action_keywords = ['시안', 'DESIGN', '광고', 'AD', 'SUPPORT', '순위', 'RANK', '결과', 'RESULT', '참여', 'JOIN', 'EVENT', 'VOTE', '투표']
+    search_keywords = [kw.upper() for kw in (plave_names + action_keywords + PLLI_FAVORITE_ACCOUNTS + GENERAL_VOTE_ACCOUNTS)]
 
     all_accounts = [(acc, "A") for acc in PLLI_FAVORITE_ACCOUNTS] + [(acc, "B") for acc in GENERAL_VOTE_ACCOUNTS]
 
     for account, group_type in all_accounts:
         try:
-            print(f"@{account} 스캔 중...")
+            print(f"--- @{account} 스캔 시작 ---")
             tweets = scraper.get_tweets(account, mode='user', number=50)
             
+            # 수집된 트윗이 아예 없는 경우 체크
+            if not tweets.get('tweets'):
+                print(f"@{account}: 가져온 트윗이 없습니다.")
+                continue
+
             for t in tweets['tweets']:
                 if t['link'] in existing_links: continue
                 
                 text = t['text'].upper()
                 is_target = False
                 
-                # A그룹(플리 전용)은 무조건, B그룹은 확장 키워드 매칭 시 수집
                 if group_type == "A":
                     is_target = True
                 else:
@@ -55,8 +57,9 @@ def collect():
                         is_target = True
                 
                 if is_target:
-                    tweet_date = t['date']
-                    if "Jan" in tweet_date or "Feb" in tweet_date:
+                    # [수정] 날짜 필터를 더 넓게: 2026년 게시글이면 일단 다 가져옴
+                    tweet_date = t.get('date', '')
+                    if "2026" in tweet_date:
                         new_data.append({
                             "account": account,
                             "text": t['text'],
@@ -64,16 +67,19 @@ def collect():
                             "link": t['link'],
                             "images": t['pictures']
                         })
+            print(f"@{account}: 현재까지 {len(new_data)}개 발견")
         except Exception as e:
-            print(f"Error at @{account}: {e}")
+            print(f"@{account} 에러 발생: {e}")
             continue
             
+    # 새 데이터 합치기
     final_data = new_data + total_data
     final_data = final_data[:300]
 
     with open(file_path, 'w', encoding='utf-8') as f:
         json.dump(final_data, f, ensure_ascii=False, indent=4)
-    print(f"완료: {len(new_data)}개 추가.")
+    
+    print(f"== 최종 수집 완료: 총 {len(new_data)}개의 새 소식 저장됨 ==")
 
 if __name__ == "__main__":
     collect()
