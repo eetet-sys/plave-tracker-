@@ -3,13 +3,13 @@ import os
 from ntscraper import Nitter
 from datetime import datetime
 
-# 1. 계정 성격에 따라 두 그룹으로 분류
-# A그룹: 플레이브 관련 정보만 주로 올라오는 계정 (키워드 검사 없이 수집)
+# 1. 계정 성격 분류
+# A그룹: 플레이브 전용 소식이 주로 올라오는 곳 (무조건 수집)
 PLLI_FAVORITE_ACCOUNTS = [
     "picnic_kr", "giftreeofficial", "lovedol_vote", "HIGHER_twt"
 ]
 
-# B그룹: 여러 아이돌이 섞여 있는 대형 투표 앱 (반드시 키워드 검사 필요)
+# B그룹: 여러 아이돌 소식이 섞여 있는 곳 (키워드 검사 필수)
 GENERAL_VOTE_ACCOUNTS = [
     "starnewskorea", "sda_official", "GoldenDisc", "fanplus_app", "thefactnews", 
     "myloveidol_kpop", "MubeatOfficial", "bigc_kr", "twt_my1pick", "podoal_official", 
@@ -32,11 +32,15 @@ def collect():
 
     existing_links = {item['link'] for item in total_data}
 
-    # 플레이브 전용 키워드
+    # 수집 키워드 보강
     plave_keywords = [
         'PLAVE', '플레이브', 'PLLI', '플리',
         '예준', 'YEJUN', '노아', 'NOAH', '밤비', 'BAMBI', '은호', 'EUNHO', '하민', 'HAMIN'
     ]
+    
+    # 계정 아이디들도 키워드에 포함하여 @ 없이 언급되어도 찾도록 설정
+    account_keywords = PLLI_FAVORITE_ACCOUNTS + GENERAL_VOTE_ACCOUNTS
+    search_keywords = [kw.upper() for kw in (plave_keywords + account_keywords)]
 
     # 모든 계정 리스트 합치기
     all_accounts = [(acc, "A") for acc in PLLI_FAVORITE_ACCOUNTS] + [(acc, "B") for acc in GENERAL_VOTE_ACCOUNTS]
@@ -44,23 +48,25 @@ def collect():
     for account, group_type in all_accounts:
         try:
             print(f"@{account} 스캔 중...")
-            tweets = scraper.get_tweets(account, mode='user', number=40)
+            # 더 꼼꼼한 확인을 위해 스캔 개수 상향
+            tweets = scraper.get_tweets(account, mode='user', number=50)
             
             for t in tweets['tweets']:
                 if t['link'] in existing_links: continue
                 
-                text = t['text']
+                text = t['text'].upper()
                 is_target = False
                 
-                # A그룹은 무조건 수집, B그룹은 키워드가 있을 때만 수집
+                # A그룹은 무조건, B그룹은 키워드(이름 또는 아이디)가 있을 때 수집
                 if group_type == "A":
                     is_target = True
                 else:
-                    if any(kw.upper() in text.upper() for kw in plave_keywords):
+                    if any(kw in text for kw in search_keywords):
                         is_target = True
                 
                 if is_target:
                     tweet_date = t['date']
+                    # 1월, 2월 데이터 위주 필터링
                     if "Jan" in tweet_date or "Feb" in tweet_date:
                         new_data.append({
                             "account": account,
