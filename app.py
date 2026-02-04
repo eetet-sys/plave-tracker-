@@ -1,5 +1,5 @@
 import streamlit as st
-import json
+import pandas as pd
 
 # 1. 페이지 설정
 st.set_page_config(
@@ -8,7 +8,11 @@ st.set_page_config(
     layout="wide"
 )
 
-# 2. 가독성 개선 플레이브 테마 CSS
+# 2. 구글 시트 연결 설정 (보내주신 ID 적용)
+SHEET_ID = "1fO9eZpzP8orgwRkH0FiwO1ZAQmvaKJqpMmophIP_8Ts"
+SHEET_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv"
+
+# 3. 디자인 CSS
 st.markdown("""
     <style>
     .stApp {
@@ -49,53 +53,50 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# 3. 헤더 섹션
+# 4. 헤더 섹션
 st.markdown("<h1 class='main-title'>💙 PLAVE VOTE & AD TRACKER</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: #A29BFE; font-weight: 500;'>Asterum의 소식을 실시간으로 확인하세요</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: #A29BFE; font-weight: 500;'>구글 시트와 동기화된 투표 정보입니다</p>", unsafe_allow_html=True)
 
-# 4. 데이터 로드
+# 5. 데이터 로드 및 출력
 try:
-    # 파일이 있는지 먼저 확인
-    with open('plave_data.json', 'r', encoding='utf-8') as f:
-        data = json.load(f)
+    # 구글 시트 데이터 읽기
+    df = pd.read_csv(SHEET_URL)
     
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.metric("수집된 정보", f"{len(data)}개")
+        st.metric("수집된 정보", f"{len(df)}개")
     with col2:
-        st.metric("타겟 계정", "28개")
+        st.metric("연동 상태", "실시간")
     with col3:
         if st.button('✨ 데이터 새로고침'):
+            st.cache_data.clear()
             st.rerun()
 
     st.divider()
 
-    if not data:
-        st.markdown("""
-            <div style='text-align: center; padding: 50px; border: 1px dashed #A29BFE; border-radius: 15px;'>
-                <h2 style='color: #A29BFE;'>💫 아스테룸의 주파수가 잠잠합니다</h2>
-                <p style='color: #FFFFFF;'>현재 새로운 투표나 시안 소식이 없습니다. <br> 잠시 후 다시 확인해 주세요!</p>
-            </div>
-        """, unsafe_allow_html=True)
+    if df.empty:
+        st.info("💫 구글 시트에 데이터를 입력해 주세요! (첫 줄은 account, text, date, link, images)")
     else:
+        # 2열로 배치
         cols = st.columns(2)
-        for idx, item in enumerate(data):
+        for idx, row in df.iterrows():
             with cols[idx % 2]:
                 st.markdown(f"""
                     <div class="tweet-card">
-                        <div class="account-name">@{item['account']}</div>
-                        <div style="font-size: 0.8rem; color: #8899A6; margin-bottom: 10px;">{item['date']}</div>
-                        <div class="tweet-text">{item['text']}</div>
+                        <div class="account-name">@{row.get('account', 'Unknown')}</div>
+                        <div style="font-size: 0.8rem; color: #8899A6; margin-bottom: 10px;">{row.get('date', '-')}</div>
+                        <div class="tweet-text">{row.get('text', '내용 없음')}</div>
                     </div>
                 """, unsafe_allow_html=True)
                 
-                if item.get('images'):
-                    st.image(item['images'][0], use_container_width=True)
+                # 이미지가 있는 경우 (구글 드라이브나 웹 이미지 링크)
+                if pd.notna(row.get('images')):
+                    st.image(row['images'], use_container_width=True)
                 
-                st.markdown(f"[🔗 트윗 원문 보기]({item['link']})")
+                # 원문 링크가 있는 경우
+                if pd.notna(row.get('link')):
+                    st.markdown(f"[🔗 원문 보기]({row['link']})")
                 st.write("")
 
-except FileNotFoundError:
-    st.info("💙 데이터 파일을 생성 중입니다. GitHub Actions를 실행해 주세요!")
 except Exception as e:
-    st.error(f"오류 발생: {e}")
+    st.error(f"데이터를 불러오는 중 오류가 발생했습니다. 시트의 [공유] 설정이 '링크가 있는 모든 사용자'로 되어 있는지 확인해 주세요! \n\n 오류 내용: {e}")
