@@ -1,7 +1,9 @@
 import json
 import os
 from ntscraper import Nitter
+from datetime import datetime
 
+# 1. 주시할 계정 리스트 (28개)
 TARGET_ACCOUNTS = [
     "picnic_kr", "giftreeofficial", "lovedol_vote", "starnewskorea", "sda_official",
     "HIGHER_twt", "GoldenDisc", "fanplus_app", "thefactnews", "myloveidol_kpop",
@@ -14,9 +16,9 @@ TARGET_ACCOUNTS = [
 def collect():
     scraper = Nitter()
     new_data = []
-    
-    # 1. 기존 데이터 불러오기 (중복 체크용)
     file_path = 'plave_data.json'
+    
+    # 기존 데이터 로드 (중복 제거용)
     if os.path.exists(file_path):
         with open(file_path, 'r', encoding='utf-8') as f:
             try:
@@ -26,43 +28,55 @@ def collect():
     else:
         total_data = []
 
-    # 기존에 저장된 트윗 링크들만 따로 추출 (Set 자료형으로 빠른 비교)
     existing_links = {item['link'] for item in total_data}
+
+    # 수집 키워드 (한글 + 영문 활동명)
+    keywords = [
+        'PLAVE', '플레이브',
+        '예준', 'Yejun', 'YEJUN',
+        '노아', 'Noah', 'NOAH',
+        '뱀비', 'Bambi', 'BAMBI',
+        '은호', 'Eunho', 'EUNHO',
+        '하민', 'Hamin', 'HAMIN',
+        '투표', 'VOTE', 'vote',
+        '시안', 'DESIGN', 'design'
+    ]
 
     for account in TARGET_ACCOUNTS:
         try:
-            tweets = scraper.get_tweets(account, mode='user', number=15)
+            print(f"@{account} 스캔 중...")
+            # 1월 소식까지 훑기 위해 수집 개수를 50개로 설정
+            tweets = scraper.get_tweets(account, mode='user', number=50)
+            
             for t in tweets['tweets']:
-                # 중복 체크: 이미 있는 링크면 건너뜀
                 if t['link'] in existing_links:
                     continue
                 
                 text = t['text']
-                # 필터링: PLAVE(대문자) 또는 멤버 이름 포함 여부
-                if any(kw in text for kw in ['PLAVE', '예준', '노아', '밤비', '은호', '하민', '투표', '시안']):
-                    new_data.append({
-                        "account": account,
-                        "text": t['text'],
-                        "date": t['date'],
-                        "link": t['link'],
-                        "images": t['pictures']
-                    })
+                # 키워드 필터링 (대문자 PLAVE 포함)
+                if any(kw in text for kw in keywords):
+                    # 날짜 체크 (1월, 2월 데이터 위주로 수집)
+                    tweet_date = t['date']
+                    if "Jan" in tweet_date or "Feb" in tweet_date:
+                        new_data.append({
+                            "account": account,
+                            "text": t['text'],
+                            "date": t['date'],
+                            "link": t['link'],
+                            "images": t['pictures']
+                        })
         except Exception as e:
-            print(f"Error scanning {account}: {e}")
+            print(f"Error at @{account}: {e}")
             continue
             
-    # 2. 새 데이터와 기존 데이터 합치기
-    # 새 데이터를 앞쪽에 배치하여 최신순 유지
+    # 새 데이터 + 기존 데이터 합치기 (최신 300개 유지)
     final_data = new_data + total_data
-    
-    # 3. 데이터 개수 제한 (너무 많아지면 앱이 느려지므로 최신 200개만 유지)
-    final_data = final_data[:200]
+    final_data = final_data[:300]
 
-    # 4. 저장
     with open(file_path, 'w', encoding='utf-8') as f:
         json.dump(final_data, f, ensure_ascii=False, indent=4)
     
-    print(f"업데이트 완료: 새 트윗 {len(new_data)}개 추가됨.")
+    print(f"성공! 새 소식 {len(new_data)}개가 추가되었습니다.")
 
 if __name__ == "__main__":
     collect()
