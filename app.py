@@ -23,7 +23,9 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-st.markdown("<h1 class='main-title'>💙 PLAVE PLLI TRACKER</h1>", unsafe_allow_html=True)
+st.markdown("<h1 class='main-title'>
+💙💜💗❤️🖤🤍
+PLAVE PLLI 투표</h1>", unsafe_allow_html=True)
 
 # 4. 데이터 로드 및 D-Day 계산 함수
 try:
